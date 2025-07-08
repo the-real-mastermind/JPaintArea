@@ -1,11 +1,15 @@
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 
 public class Main {
 
     public static JButton changeColor;
     public static JPaintArea paint;
     public static PaintTools tools;
+    //temp
+    public static JButton save = new JButton("Save");
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
@@ -33,7 +37,25 @@ public class Main {
             // contentPane.add(new JPanel(), BorderLayout.WEST);
             // contentPane.add(new JPanel(), BorderLayout.EAST);
 
+            save.addActionListener(new events2(paint));
+            contentPane.add(save, BorderLayout.WEST);
+
             frame.setVisible(true);
         });
     }
 }
+
+class events2 implements ActionListener {
+
+    public JPaintArea area;
+    public events2(JPaintArea area){
+        this.area = area;
+    }
+    @Override
+    public void actionPerformed(ActionEvent e) {
+
+        area.importImage("C:/Users/Mastermind/Downloads/Exported.png");
+
+    }
+}
+

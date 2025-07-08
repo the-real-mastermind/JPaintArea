@@ -1,10 +1,13 @@
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import javax.swing.border.LineBorder;
 
 /**
  * A JComponent that allows the user to paint onto a canvas
@@ -21,6 +24,9 @@ public class JPaintArea extends JPanel {
      * */
     protected int gridWidth, gridHeight;
 
+    private int panelWidth, panelHeight; // Add these fields
+
+
     /**
      * The size (in cells) of the brush that the user uses to paint on the paint area
      * */
@@ -29,7 +35,7 @@ public class JPaintArea extends JPanel {
     /**
      * The size that each cells takes up on the frame
      * */
-    int cellWidth, cellHeight;
+    protected int cellWidth, cellHeight;
 
     /**
      * how many cells are there between each grid (grid is locked to a square)
@@ -76,27 +82,120 @@ public class JPaintArea extends JPanel {
      * @param panelHeight the height of the JPaintArea
      * */
     public JPaintArea(int cellX, int cellY, int panelWidth, int panelHeight) {
+        this.panelWidth = panelWidth;
+        this.panelHeight = panelHeight;
+
         this.cellX = cellX;
         this.cellY = cellY;
-
         this.gridWidth = cellX;
         this.gridHeight = cellY;
 
         this.cellWidth = panelWidth / gridWidth;
         this.cellHeight = panelHeight / gridHeight;
 
-        int exactWidth = cellWidth * gridWidth;
-        int exactHeight = cellHeight * gridHeight;
-        this.setPreferredSize(new Dimension(exactWidth, exactHeight));
-
-        //this.setBorder(new LineBorder(gridColor, 3));
+        setPreferredSize(new Dimension(panelWidth, panelHeight));
         setBackground(new Color(0, 0, 0, 0));
         setOpaque(false);
 
         listener.paint = this;
+
         addMouseListener(listener);
         addMouseMotionListener(listener);
     }
+
+
+
+    /**
+     * Exports the JPaintArea painted image as a file to the users local system
+     * @param fileName The name of the file to be saved
+     * @param fileType The file extension of the file to be saved
+     * @param filePath The path to the folder where the file is to be saved
+     */
+    public void exportImage(String fileName, String fileType, String filePath){
+        //Creates a buffered image
+        BufferedImage bufferedImage = new BufferedImage(gridWidth, gridHeight, BufferedImage.TYPE_INT_ARGB);
+
+        //Paint the buffered image with the proper sizing
+        for (int y = 0; y < gridHeight; y++) {
+            for (int x = 0; x < gridWidth; x++) {
+                Point p = new Point(x, y);
+                Color color = paintedCells.getOrDefault(p, new Color(0, 0, 0, 0)); // transparent if not painted
+                bufferedImage.setRGB(x, y, color.getRGB());
+            }
+        }
+
+        //Try to export the image or display an error
+        try {
+            File outputfile = new File(filePath, fileName + "." + fileType);
+            ImageIO.write(bufferedImage, fileType, outputfile);
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(JOptionPane.getRootFrame(), "Unable to export image");
+            throw new RuntimeException("Failed to export image", e);
+        }
+    }
+
+    /**
+     * Imports an image and adjusts the cell count to match the image resolution,
+     * while keeping the overall panel size constant.
+     * @param path Path to the image file
+     */
+    public void importImage(String path) {
+        File imageFile = new File(path);
+        try {
+            BufferedImage image = ImageIO.read(imageFile);
+            if (image == null) throw new IOException("Unsupported image format.");
+
+            int imgWidth = image.getWidth();
+            int imgHeight = image.getHeight();
+
+            this.cellX = imgWidth;
+            this.cellY = imgHeight;
+            this.gridWidth = cellX;
+            this.gridHeight = cellY;
+
+            int cellSize = 16;
+            this.cellWidth = cellSize;
+            this.cellHeight = cellSize;
+
+            this.panelWidth = gridWidth * cellSize;
+            this.panelHeight = gridHeight * cellSize;
+
+            setPreferredSize(new Dimension(panelWidth, panelHeight));
+            setSize(panelWidth, panelHeight);
+            revalidate();
+            repaint();
+
+            paintedCells.clear();
+            for (int y = 0; y < gridHeight; y++) {
+                for (int x = 0; x < gridWidth; x++) {
+                    int rgb = image.getRGB(x, y);
+                    Color color = new Color(rgb, true);
+                    if (color.getAlpha() > 0) {
+                        paintedCells.put(new Point(x, y), color);
+                    }
+                }
+            }
+
+            Container parent = getParent();
+            if (parent != null) {
+                parent.revalidate();
+                parent.repaint();
+            }
+
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(this, "Failed to load image: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+        }
+    }
+
+
+
+
+
+
+
+
+
 
     /**
      * Paints the cells and grid onto the paint area
@@ -105,6 +204,7 @@ public class JPaintArea extends JPanel {
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
 
+        //Paints the cells their assigned color (or blank)
         for (int y = 0; y < gridHeight; y++) {
             for (int x = 0; x < gridWidth; x++) {
                 Point p = new Point(x, y);
@@ -118,6 +218,7 @@ public class JPaintArea extends JPanel {
                     g.fillRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
                 }
 
+                //Draws the grid if needed
                 if (useGrid) {
                     g.setColor(gridColor);
                     g.drawRect((x * cellWidth) * gridSize, (y * cellHeight) * gridSize, (cellWidth) * gridSize , (cellHeight) * gridSize);
@@ -125,6 +226,7 @@ public class JPaintArea extends JPanel {
             }
         }
 
+        //paints the hovered cell effect
         if (hoveredCell != null) {
             int hx = hoveredCell.x;
             int hy = hoveredCell.y;
@@ -141,7 +243,6 @@ public class JPaintArea extends JPanel {
                 rectY = (hy - half) * cellHeight;
             }
 
-
             g.setColor(new Color(activeColor.getRed(), activeColor.getGreen(), activeColor.getBlue(),128));
             g.fillRect(rectX, rectY, rectW, rectH);
 
@@ -150,6 +251,8 @@ public class JPaintArea extends JPanel {
             g.drawRect(rectX, rectY, rectW - 1, rectH - 1);
         }
     }
+
+    //Getters and Setters
 
     /**
      * Returns the current color used to draw the grid
@@ -250,6 +353,8 @@ public class JPaintArea extends JPanel {
 
 }
 
+//Events
+
 /**
  * The mouse listener for the JPaintArea
  * */
@@ -322,6 +427,7 @@ class listener extends MouseAdapter {
         if (centerPoint.equals(lastPaintedCell)) return;
         lastPaintedCell = centerPoint;
 
+        //Calculate the brush size differently if the brush is even or odd sized
         if (paint.getBrushSize() % 2 == 1) {
             int halfBrush = paint.getBrushSize() / 2;
             for (int dy = -halfBrush; dy <= halfBrush; dy++) {
@@ -347,6 +453,4 @@ class listener extends MouseAdapter {
         paint.repaint();
     }
 
-
-
-    }
+}
