@@ -9,13 +9,13 @@ import java.awt.event.MouseListener;
 
 public class PaintTools extends JPanel{
 
-    public PaintArea area;
+    public JPaintArea area;
     public BrushSizeField brushSize;
     public BrushColorRGB brushColor;
 
     public events l = new events();
 
-     public PaintTools(int width, int height, PaintArea area){
+     public PaintTools(int width, int height, JPaintArea area){
          this.area = area;
          brushSize = new BrushSizeField(width / 4, 20, area);
          this.add(brushSize);
@@ -36,12 +36,15 @@ public class PaintTools extends JPanel{
 class BrushSizeField extends JPanel {
 
     public int width, height;
-    public PaintArea area;
+    public JPaintArea area;
 
     public JTextField textField = new JTextField();
     public JLabel label = new JLabel();
 
-    public BrushSizeField(int width, int height, PaintArea area) {
+    private boolean isUpdating = false;
+
+
+    public BrushSizeField(int width, int height, JPaintArea area) {
         this.width = width;
         this.height = height;
         this.area = area;
@@ -59,7 +62,6 @@ class BrushSizeField extends JPanel {
         this.add(label);
         this.add(textField);
 
-        // 👇 Add listener to update brush size on text change
         textField.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) {
                 updateBrushSize();
@@ -74,26 +76,40 @@ class BrushSizeField extends JPanel {
             }
 
             private void updateBrushSize() {
+
+                if (isUpdating){
+                    return;
+                };
+
                 try {
                     String size = textField.getText().trim();
+                    int newSize;
 
-                    if(size.isEmpty()){
-                        size = "1";
+                    if(!size.isEmpty()){
+                        newSize = Integer.parseInt(size);
+                    }else{
+                        isUpdating = true;
+                        newSize = 1;
                         SwingUtilities.invokeLater(() -> {
                             textField.setText("1");
                         });
+                        isUpdating = false;
                     }
-                    int newSize = Integer.parseInt(size);
 
                     if (newSize > 0) {
                         area.setBrushSize(newSize);
                         area.repaint();
                     }
+
                 } catch (NumberFormatException ex) {
                     SwingUtilities.invokeLater(() -> {
+                        isUpdating = true;
                         System.out.println(ex.getMessage());
                         JOptionPane.showMessageDialog(JOptionPane.getRootFrame(), "Brush size must be a number");
                         textField.setText("1");
+                        area.setBrushSize(1);
+                        area.repaint();
+                        isUpdating = false;
                     });
 
 
@@ -108,7 +124,7 @@ class BrushColorRGB extends JPanel {
 
     public int width, height;
     public Color color;
-    public PaintArea area;
+    public JPaintArea area;
 
     public int r, g, b;
 
@@ -121,7 +137,7 @@ class BrushColorRGB extends JPanel {
     private boolean isUpdating = false;
 
 
-    public BrushColorRGB(int width, int height, PaintArea area) {
+    public BrushColorRGB(int width, int height, JPaintArea area) {
         this.width = width;
         this.height = height;
         this.area = area;
