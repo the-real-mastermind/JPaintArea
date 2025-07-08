@@ -1,34 +1,39 @@
 import javax.swing.*;
 import java.awt.*;
 
-public class Main{
+public class Main {
 
     public static JButton changeColor;
     public static JPaintArea paint;
-
     public static PaintTools tools;
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame("JPaintArea Test");
-            paint = new JPaintArea(32, 32, 500, 500);
-            frame.setLayout(new FlowLayout());
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setSize(900, 900);
-            frame.getContentPane().setBackground(new Color(100,100,100));
-            frame.add(paint);
+            frame.setLocationRelativeTo(null);
 
+            Container contentPane = frame.getContentPane();
+            contentPane.setLayout(new BorderLayout());
+            contentPane.setBackground(new Color(100, 100, 100));
 
+            JPanel centerPanel = new JPanel(new GridBagLayout());
+            centerPanel.setOpaque(false);
+
+            paint = new JPaintArea(32, 32, 500, 500);
+            paint.setBackground(new Color(150, 150, 150));
+
+            centerPanel.add(paint);
+            contentPane.add(centerPanel, BorderLayout.CENTER);
 
             tools = new PaintTools(480, 30, paint);
+            contentPane.add(tools, BorderLayout.SOUTH);
 
-            frame.add(tools);
+            // contentPane.add(new JPanel(), BorderLayout.WEST);
+            // contentPane.add(new JPanel(), BorderLayout.EAST);
 
             frame.setVisible(true);
-
-
-
-
         });
     }
 }
-

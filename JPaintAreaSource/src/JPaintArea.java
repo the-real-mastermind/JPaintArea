@@ -57,7 +57,7 @@ public class JPaintArea extends JPanel {
     private Color activeColor = Color.black;
 
     /**
-     * The color of the grid (and outline) of the paint area
+     * The color of the grid
      * */
     private Color gridColor = new Color(0xFFFFFFF);
 
@@ -89,7 +89,7 @@ public class JPaintArea extends JPanel {
         int exactHeight = cellHeight * gridHeight;
         this.setPreferredSize(new Dimension(exactWidth, exactHeight));
 
-        this.setBorder(new LineBorder(gridColor, 3));
+        //this.setBorder(new LineBorder(gridColor, 3));
         setBackground(new Color(0, 0, 0, 0));
         setOpaque(false);
 
@@ -141,8 +141,11 @@ public class JPaintArea extends JPanel {
                 rectY = (hy - half) * cellHeight;
             }
 
+
             g.setColor(new Color(activeColor.getRed(), activeColor.getGreen(), activeColor.getBlue(),128));
             g.fillRect(rectX, rectY, rectW, rectH);
+
+
             g.setColor(Color.WHITE);
             g.drawRect(rectX, rectY, rectW - 1, rectH - 1);
         }
