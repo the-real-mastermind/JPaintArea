@@ -3,6 +3,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseWheelEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -24,7 +25,8 @@ public class JPaintArea extends JPanel {
      * */
     protected int gridWidth, gridHeight;
 
-    private int panelWidth, panelHeight; // Add these fields
+    int panelWidth;
+    int panelHeight; // Add these fields
 
 
     /**
@@ -101,32 +103,31 @@ public class JPaintArea extends JPanel {
 
         addMouseListener(listener);
         addMouseMotionListener(listener);
+        addMouseWheelListener(listener);
+
     }
 
 
 
     /**
      * Exports the JPaintArea painted image as a file to the users local system
-     * @param fileName The name of the file to be saved
-     * @param fileType The file extension of the file to be saved
-     * @param filePath The path to the folder where the file is to be saved
      */
-    public void exportImage(String fileName, String fileType, String filePath){
-        //Creates a buffered image
+    public void exportImage(String path){
         BufferedImage bufferedImage = new BufferedImage(gridWidth, gridHeight, BufferedImage.TYPE_INT_ARGB);
 
-        //Paint the buffered image with the proper sizing
         for (int y = 0; y < gridHeight; y++) {
             for (int x = 0; x < gridWidth; x++) {
                 Point p = new Point(x, y);
-                Color color = paintedCells.getOrDefault(p, new Color(0, 0, 0, 0)); // transparent if not painted
+                Color color = paintedCells.getOrDefault(p, new Color(0, 0, 0, 0));
                 bufferedImage.setRGB(x, y, color.getRGB());
             }
         }
 
-        //Try to export the image or display an error
         try {
-            File outputfile = new File(filePath, fileName + "." + fileType);
+            File outputfile = new File(path);
+
+            String[] type = path.split("\\.");
+            String fileType = type[type.length - 1];
             ImageIO.write(bufferedImage, fileType, outputfile);
         } catch (IOException e) {
             JOptionPane.showMessageDialog(JOptionPane.getRootFrame(), "Unable to export image");
@@ -136,35 +137,53 @@ public class JPaintArea extends JPanel {
 
     /**
      * Imports an image and adjusts the cell count to match the image resolution,
-     * while keeping the overall panel size constant.
+     * while preserving aspect ratio and fitting it inside the existing panel size.
      * @param path Path to the image file
      */
     public void importImage(String path) {
         File imageFile = new File(path);
         try {
             BufferedImage image = ImageIO.read(imageFile);
-            if (image == null) throw new IOException("Unsupported image format.");
+            if (image == null) throw new IOException("Unsupported or unreadable image: " + path);
+
+            BufferedImage converted = new BufferedImage(
+                    image.getWidth(), image.getHeight(),
+                    BufferedImage.TYPE_INT_ARGB
+            );
+            Graphics2D g2d = converted.createGraphics();
+            g2d.drawImage(image, 0, 0, null);
+            g2d.dispose();
+
+            image = converted;
+
 
             int imgWidth = image.getWidth();
             int imgHeight = image.getHeight();
 
+            // Update grid size to match image resolution
             this.cellX = imgWidth;
             this.cellY = imgHeight;
             this.gridWidth = cellX;
             this.gridHeight = cellY;
 
-            int cellSize = 16;
-            this.cellWidth = cellSize;
-            this.cellHeight = cellSize;
+            // Compute scale to preserve aspect ratio
+            double scaleX = (double) panelWidth / gridWidth;
+            double scaleY = (double) panelHeight / gridHeight;
+            double scale = Math.max(1, Math.floor(Math.min(scaleX, scaleY))); // minimum 1 to avoid 0-sized cells
 
-            this.panelWidth = gridWidth * cellSize;
-            this.panelHeight = gridHeight * cellSize;
+            this.cellWidth = (int) scale;
+            this.cellHeight = this.cellWidth; // Keep square cells to preserve aspect ratio
+
+            // Update actual panel size based on scaled cell size
+            this.panelWidth = cellWidth * gridWidth;
+            this.panelHeight = cellHeight * gridHeight;
 
             setPreferredSize(new Dimension(panelWidth, panelHeight));
             setSize(panelWidth, panelHeight);
             revalidate();
             repaint();
 
+            // Populate painted cells from image
             paintedCells.clear();
             for (int y = 0; y < gridHeight; y++) {
                 for (int x = 0; x < gridWidth; x++) {
@@ -176,6 +195,7 @@ public class JPaintArea extends JPanel {
                 }
             }
 
+            // Refresh parent container (in case it's in a JScrollPane or layout)
             Container parent = getParent();
             if (parent != null) {
                 parent.revalidate();
@@ -187,6 +207,7 @@ public class JPaintArea extends JPanel {
             e.printStackTrace();
         }
     }
+
 
 
 
@@ -362,6 +383,52 @@ class listener extends MouseAdapter {
     public JPaintArea paint;
     public boolean held;
     private Point lastPaintedCell = null;
+
+
+    @Override
+    public void mouseWheelMoved(MouseWheelEvent e) {
+        int rotation = e.getWheelRotation();
+
+        int newCellWidth = paint.cellWidth - rotation;
+        int newCellHeight = paint.cellHeight - rotation;
+        newCellWidth = Math.max(1, newCellWidth);
+        newCellHeight = Math.max(1, newCellHeight);
+
+        // Get viewport and wrapper panel (the viewport's view)
+        JViewport viewport = Main.scrollPane.getViewport();
+        Component view = viewport.getView();  // This is the wrapper panel
+
+        Point viewPos = viewport.getViewPosition(); // current scroll pos
+        Point mousePos = SwingUtilities.convertPoint(e.getComponent(), e.getPoint(), view); // mouse relative to wrapper panel
+
+        // Compute relative mouse position ratio on paint area
+        double mouseRatioX = (double) mousePos.x / paint.getWidth();
+        double mouseRatioY = (double) mousePos.y / paint.getHeight();
+
+        // Update cell size and repaint paint area
+        paint.cellWidth = newCellWidth;
+        paint.cellHeight = newCellHeight;
+
+        paint.panelWidth = paint.gridWidth * paint.cellWidth;
+        paint.panelHeight = paint.gridHeight * paint.cellHeight;
+        paint.setPreferredSize(new Dimension(paint.panelWidth, paint.panelHeight));
+        paint.revalidate();
+        paint.repaint();
+
+        // After resize, update wrapper panel layout to re-center paint
+        view.revalidate();
+
+        // Calculate new scroll position so zoom centers on mouse
+        int newViewPosX = (int)(paint.panelWidth * mouseRatioX - mousePos.x);
+        int newViewPosY = (int)(paint.panelHeight * mouseRatioY - mousePos.y);
+
+        // Clamp to >= 0
+        newViewPosX = Math.max(newViewPosX, 0);
+        newViewPosY = Math.max(newViewPosY, 0);
+
+        viewport.setViewPosition(new Point(newViewPosX, newViewPosY));
+    }
+
 
     @Override
     public void mousePressed(MouseEvent e) {

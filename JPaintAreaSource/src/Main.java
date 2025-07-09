@@ -1,14 +1,15 @@
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 
 public class Main {
 
     public static JButton changeColor;
     public static JPaintArea paint;
     public static PaintTools tools;
-    //temp
+    public static FileImportExport file;
+    public static JScrollPane scrollPane; // Scroll pane reference
+
+    // temp
     public static JButton save = new JButton("Save");
 
     public static void main(String[] args) {
@@ -28,34 +29,29 @@ public class Main {
             paint = new JPaintArea(32, 32, 500, 500);
             paint.setBackground(new Color(150, 150, 150));
 
-            centerPanel.add(paint);
+            // Wrapper panel to center the paint area
+            JPanel paintWrapper = new JPanel(new GridBagLayout());
+            paintWrapper.setBackground(new Color(100, 100, 100));
+            paintWrapper.add(paint);
+
+            // Scroll pane holding the wrapper panel
+            scrollPane = new JScrollPane(paintWrapper);
+            scrollPane.setPreferredSize(new Dimension(700, 700));
+            scrollPane.setBorder(null);
+            scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
+            scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+            scrollPane.getViewport().setBackground(new Color(100, 100, 100));
+
+            centerPanel.add(scrollPane);
             contentPane.add(centerPanel, BorderLayout.CENTER);
 
             tools = new PaintTools(480, 30, paint);
             contentPane.add(tools, BorderLayout.SOUTH);
 
-            // contentPane.add(new JPanel(), BorderLayout.WEST);
-            // contentPane.add(new JPanel(), BorderLayout.EAST);
-
-            save.addActionListener(new events2(paint));
-            contentPane.add(save, BorderLayout.WEST);
+            file = new FileImportExport(100, 40, paint);
+            contentPane.add(file, BorderLayout.NORTH);
 
             frame.setVisible(true);
         });
     }
 }
-
-class events2 implements ActionListener {
-
-    public JPaintArea area;
-    public events2(JPaintArea area){
-        this.area = area;
-    }
-    @Override
-    public void actionPerformed(ActionEvent e) {
-
-        area.importImage("C:/Users/Mastermind/Downloads/Exported.png");
-
-    }
-}
-
