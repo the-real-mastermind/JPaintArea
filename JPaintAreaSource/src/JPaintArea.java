@@ -3,64 +3,59 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.event.MouseWheelEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
- * A JComponent that allows the user to paint onto a canvas
- * */
+ * A JComponent that allows the user to paint pixels onto a canvas
+ */
 public class JPaintArea extends JPanel {
 
     /**
-     * The amount of paintable cells on the canvas
+     * The cell size of the canvas
      * */
     private int cellX, cellY;
-
-    /**
-     * Used for calculations
-     * */
     protected int gridWidth, gridHeight;
 
-    int panelWidth;
-    int panelHeight; // Add these fields
-
+    /**
+     * The size in pixels of the JPaintArea
+     * */
+    int panelWidth, panelHeight;
 
     /**
-     * The size (in cells) of the brush that the user uses to paint on the paint area
+     * The amount of cells the users brush paints
      * */
     private int brushSize = 1;
 
     /**
-     * The size that each cells takes up on the frame
+     * The size of each cell in pixels
      * */
     protected int cellWidth, cellHeight;
 
     /**
-     * how many cells are there between each grid (grid is locked to a square)
+     * The amount of cells between each grid line
      * */
     private int gridSize = 16;
 
     /**
-     * Does the paint area display the grid
+     * Is the grid enabled
      * */
     private boolean useGrid;
 
     /**
-     * Hashmap of the all the painted cells and their color
+     * a map of all the painted cells. Contains the position and the color of the cells
      * */
-    protected Map<Point, Color> paintedCells = new HashMap<>();
+    protected LinkedHashMap<Point, Color> paintedCells = new LinkedHashMap<>();
 
     /**
-     * The cell the user is hovering over
+     * The hovered cell
      * */
     protected Point hoveredCell = null;
 
     /**
-     * The active color used for painting on cells
+     * The active painting color
      * */
     private Color activeColor = Color.black;
 
@@ -69,48 +64,75 @@ public class JPaintArea extends JPanel {
      * */
     private Color gridColor = new Color(0xFFFFFFF);
 
-
-
     /**
-     * The mouse event listener for the paint area
+     * The event listener
      * */
     public listener listener = new listener();
 
     /**
-     * Creates a Paint area with a set cell size and size for the paint area. Does not have a grid by default.
-     * @param cellX the amount of cells on the X axis
-     * @param cellY the amount of cells on the Y axis
-     * @param panelWidth the width of the JPaintArea
-     * @param panelHeight the height of the JPaintArea
+     * is the canvas enabled for painting
      * */
+    private boolean isEnabled = true;
+
+    /***.
+     * Creates a Paint area with a set cell size and size for the paint area. Does not have a grid by default. Square size is recommended
+     * @param cellSize the size in cells of the canvas
+     * @param panelWidth the x size of the JPaintArea
+     * @param panelHeight the y size of the JPaintArea
+     */
+    public JPaintArea(int cellSize, int panelWidth, int panelHeight) {
+        create(cellSize, cellSize, panelWidth, panelHeight);
+    }
+
+    /***.
+     * Creates a Paint area with a set x and y cell size and size for the paint area. Does not have a grid by default. Square size is recommended
+     * @param cellX the x size in cells of the canvas
+     * @param cellY the y size in cells of the canvas
+     * @param panelWidth the x size of the JPaintArea
+     * @param panelHeight the y size of the JPaintArea
+     */
     public JPaintArea(int cellX, int cellY, int panelWidth, int panelHeight) {
+        create(cellX, cellY, panelWidth, panelHeight);
+    }
+
+    public void create(int cellX, int cellY, int panelWidth, int panelHeight){
         this.panelWidth = panelWidth;
         this.panelHeight = panelHeight;
-
         this.cellX = cellX;
         this.cellY = cellY;
         this.gridWidth = cellX;
         this.gridHeight = cellY;
-
-        this.cellWidth = panelWidth / gridWidth;
-        this.cellHeight = panelHeight / gridHeight;
-
         setPreferredSize(new Dimension(panelWidth, panelHeight));
+        setSize(panelWidth, panelHeight);
+        resizePaintArea(gridWidth, gridHeight);
         setBackground(new Color(0, 0, 0, 0));
         setOpaque(false);
-
         listener.paint = this;
-
         addMouseListener(listener);
         addMouseMotionListener(listener);
-        addMouseWheelListener(listener);
-
     }
 
-
+    /**
+     * Resizes the paint area to fit a new cell Size
+     * @param newCellX the new x cell size
+     * @param newCellY the new y cell size
+     */
+    public void resizePaintArea(int newCellX, int newCellY) {
+        this.cellX = newCellX;
+        this.cellY = newCellY;
+        this.gridWidth = newCellX;
+        this.gridHeight = newCellY;
+        int cellSizeW = panelWidth / gridWidth;
+        int cellSizeH = panelHeight / gridHeight;
+        int cellSize = Math.max(1, Math.min(cellSizeW, cellSizeH));
+        this.cellWidth = cellSize;
+        this.cellHeight = cellSize;
+        repaint();
+    }
 
     /**
      * Exports the JPaintArea painted image as a file to the users local system
+     * @param path The path to the file to be exported to
      */
     public void exportImage(String path){
         BufferedImage bufferedImage = new BufferedImage(gridWidth, gridHeight, BufferedImage.TYPE_INT_ARGB);
@@ -122,10 +144,8 @@ public class JPaintArea extends JPanel {
                 bufferedImage.setRGB(x, y, color.getRGB());
             }
         }
-
         try {
             File outputfile = new File(path);
-
             String[] type = path.split("\\.");
             String fileType = type[type.length - 1];
             ImageIO.write(bufferedImage, fileType, outputfile);
@@ -145,7 +165,6 @@ public class JPaintArea extends JPanel {
         try {
             BufferedImage image = ImageIO.read(imageFile);
             if (image == null) throw new IOException("Unsupported or unreadable image: " + path);
-
             BufferedImage converted = new BufferedImage(
                     image.getWidth(), image.getHeight(),
                     BufferedImage.TYPE_INT_ARGB
@@ -153,70 +172,75 @@ public class JPaintArea extends JPanel {
             Graphics2D g2d = converted.createGraphics();
             g2d.drawImage(image, 0, 0, null);
             g2d.dispose();
-
             image = converted;
-
-
             int imgWidth = image.getWidth();
             int imgHeight = image.getHeight();
-
-            // Update grid size to match image resolution
-            this.cellX = imgWidth;
-            this.cellY = imgHeight;
-            this.gridWidth = cellX;
-            this.gridHeight = cellY;
-
-            // Compute scale to preserve aspect ratio
-            double scaleX = (double) panelWidth / gridWidth;
-            double scaleY = (double) panelHeight / gridHeight;
-            double scale = Math.max(1, Math.floor(Math.min(scaleX, scaleY))); // minimum 1 to avoid 0-sized cells
-
-            this.cellWidth = (int) scale;
-            this.cellHeight = this.cellWidth; // Keep square cells to preserve aspect ratio
-
-            // Update actual panel size based on scaled cell size
-            this.panelWidth = cellWidth * gridWidth;
-            this.panelHeight = cellHeight * gridHeight;
-
+            double aspectRatio = (double) imgWidth / imgHeight;
+            int scaledWidth = panelWidth;
+            int scaledHeight = (int) (panelWidth / aspectRatio);
+            if (scaledHeight > panelHeight) {
+                scaledHeight = panelHeight;
+                scaledWidth = (int) (panelHeight * aspectRatio);
+            }
+            BufferedImage scaledImage = new BufferedImage(scaledWidth, scaledHeight, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g2 = scaledImage.createGraphics();
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g2.drawImage(image, 0, 0, scaledWidth, scaledHeight, null);
+            g2.dispose();
+            this.gridWidth = scaledWidth;
+            this.gridHeight = scaledHeight;
+            this.cellX = gridWidth;
+            this.cellY = gridHeight;
+            this.cellWidth = 1;
+            this.cellHeight = 1;
             setPreferredSize(new Dimension(panelWidth, panelHeight));
             setSize(panelWidth, panelHeight);
-            revalidate();
-            repaint();
-
-            // Populate painted cells from image
             paintedCells.clear();
-            for (int y = 0; y < gridHeight; y++) {
-                for (int x = 0; x < gridWidth; x++) {
-                    int rgb = image.getRGB(x, y);
+            for (int y = 0; y < scaledHeight; y++) {
+                for (int x = 0; x < scaledWidth; x++) {
+                    int rgb = scaledImage.getRGB(x, y);
                     Color color = new Color(rgb, true);
                     if (color.getAlpha() > 0) {
                         paintedCells.put(new Point(x, y), color);
                     }
                 }
             }
-
-            // Refresh parent container (in case it's in a JScrollPane or layout)
             Container parent = getParent();
             if (parent != null) {
                 parent.revalidate();
                 parent.repaint();
             }
-
+            revalidate();
+            repaint();
         } catch (IOException e) {
             JOptionPane.showMessageDialog(this, "Failed to load image: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             e.printStackTrace();
         }
     }
 
+    /**
+     * Allows the user to step back a step in their painting
+     * */
+    public void undo(){
+        removeLastEntry(paintedCells);
+        revalidate();
+        repaint();
+    }
 
-
-
-
-
-
-
-
-
+    /**
+     * Removes the last entry from a LinkedHashMap
+     * @param map The LinkedHashMap to remove from
+     * */
+    public static <K, V> void removeLastEntry(LinkedHashMap<K, V> map) {
+        Iterator<Map.Entry<K, V>> iterator = map.entrySet().iterator();
+        Map.Entry<K, V> last = null;
+        while (iterator.hasNext()) {
+            last = iterator.next();
+        }
+        if (last != null) {
+            map.remove(last.getKey());
+        }
+    }
 
     /**
      * Paints the cells and grid onto the paint area
@@ -224,13 +248,10 @@ public class JPaintArea extends JPanel {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-
-        //Paints the cells their assigned color (or blank)
         for (int y = 0; y < gridHeight; y++) {
             for (int x = 0; x < gridWidth; x++) {
                 Point p = new Point(x, y);
                 Color color = paintedCells.get(p);
-
                 if (color != null) {
                     g.setColor(color);
                     g.fillRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
@@ -238,23 +259,25 @@ public class JPaintArea extends JPanel {
                     g.setColor(getBackground());
                     g.fillRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
                 }
-
-                //Draws the grid if needed
-                if (useGrid) {
-                    g.setColor(gridColor);
-                    g.drawRect((x * cellWidth) * gridSize, (y * cellHeight) * gridSize, (cellWidth) * gridSize , (cellHeight) * gridSize);
-                }
             }
         }
-
-        //paints the hovered cell effect
+        if (useGrid) {
+            g.setColor(gridColor);
+            for (int x = 0; x <= gridWidth; x++) {
+                int xPos = x * cellWidth;
+                g.drawLine(xPos, 0, xPos, gridHeight * cellHeight);
+            }
+            for (int y = 0; y <= gridHeight; y++) {
+                int yPos = y * cellHeight;
+                g.drawLine(0, yPos, gridWidth * cellWidth, yPos);
+            }
+        }
         if (hoveredCell != null) {
             int hx = hoveredCell.x;
             int hy = hoveredCell.y;
             int rectX, rectY;
             int rectW = cellWidth * brushSize;
             int rectH = cellHeight * brushSize;
-
             if (brushSize % 2 == 0) {
                 rectX = hx * cellWidth;
                 rectY = hy * cellHeight;
@@ -263,17 +286,21 @@ public class JPaintArea extends JPanel {
                 rectX = (hx - half) * cellWidth;
                 rectY = (hy - half) * cellHeight;
             }
-
             g.setColor(new Color(activeColor.getRed(), activeColor.getGreen(), activeColor.getBlue(),128));
             g.fillRect(rectX, rectY, rectW, rectH);
-
-
             g.setColor(Color.WHITE);
             g.drawRect(rectX, rectY, rectW - 1, rectH - 1);
         }
     }
 
     //Getters and Setters
+    /**
+     * Gets the preferred size of the canvas
+     * */
+    @Override
+    public Dimension getPreferredSize() {
+        return new Dimension(panelWidth, panelHeight);
+    }
 
     /**
      * Returns the current color used to draw the grid
@@ -332,15 +359,6 @@ public class JPaintArea extends JPanel {
     }
 
     /**
-     * Sets the size of a single grid cell
-     * @param size the new cell size as a {@link Dimension} object
-     */
-    public void setCellSize(Dimension size) {
-        this.cellX = size.width;
-        this.cellY = size.height;
-    }
-
-    /**
      * Returns whether the grid is currently visible
      * @return {@code true} if the grid is shown; {@code false} otherwise
      */
@@ -363,7 +381,6 @@ public class JPaintArea extends JPanel {
     public Color getActiveColor() {
         return activeColor;
     }
-
     /**
      * Sets the currently active color used for painting
      * @param activeColor the new active paint color
@@ -372,10 +389,20 @@ public class JPaintArea extends JPanel {
         this.activeColor = activeColor;
     }
 
+    public boolean isPaintEnabled() {
+        return isEnabled;
+    }
+
+    public void enablePaint() {
+        isEnabled = true;
+    }
+
+    public void disablePaint() {
+        isEnabled = false;
+    }
 }
 
 //Events
-
 /**
  * The mouse listener for the JPaintArea
  * */
@@ -383,76 +410,31 @@ class listener extends MouseAdapter {
     public JPaintArea paint;
     public boolean held;
     private Point lastPaintedCell = null;
-
-
-    @Override
-    public void mouseWheelMoved(MouseWheelEvent e) {
-        int rotation = e.getWheelRotation();
-
-        int newCellWidth = paint.cellWidth - rotation;
-        int newCellHeight = paint.cellHeight - rotation;
-        newCellWidth = Math.max(1, newCellWidth);
-        newCellHeight = Math.max(1, newCellHeight);
-
-        // Get viewport and wrapper panel (the viewport's view)
-        JViewport viewport = Main.scrollPane.getViewport();
-        Component view = viewport.getView();  // This is the wrapper panel
-
-        Point viewPos = viewport.getViewPosition(); // current scroll pos
-        Point mousePos = SwingUtilities.convertPoint(e.getComponent(), e.getPoint(), view); // mouse relative to wrapper panel
-
-        // Compute relative mouse position ratio on paint area
-        double mouseRatioX = (double) mousePos.x / paint.getWidth();
-        double mouseRatioY = (double) mousePos.y / paint.getHeight();
-
-        // Update cell size and repaint paint area
-        paint.cellWidth = newCellWidth;
-        paint.cellHeight = newCellHeight;
-
-        paint.panelWidth = paint.gridWidth * paint.cellWidth;
-        paint.panelHeight = paint.gridHeight * paint.cellHeight;
-        paint.setPreferredSize(new Dimension(paint.panelWidth, paint.panelHeight));
-        paint.revalidate();
-        paint.repaint();
-
-        // After resize, update wrapper panel layout to re-center paint
-        view.revalidate();
-
-        // Calculate new scroll position so zoom centers on mouse
-        int newViewPosX = (int)(paint.panelWidth * mouseRatioX - mousePos.x);
-        int newViewPosY = (int)(paint.panelHeight * mouseRatioY - mousePos.y);
-
-        // Clamp to >= 0
-        newViewPosX = Math.max(newViewPosX, 0);
-        newViewPosY = Math.max(newViewPosY, 0);
-
-        viewport.setViewPosition(new Point(newViewPosX, newViewPosY));
-    }
-
-
     @Override
     public void mousePressed(MouseEvent e) {
+       if(!SwingUtilities.isLeftMouseButton(e))
+           return;
         held = true;
         paintCell(e);
     }
-
     @Override
     public void mouseReleased(MouseEvent e) {
         held = false;
+        if(!SwingUtilities.isLeftMouseButton(e))
+            return;
         lastPaintedCell = null;
     }
-
     @Override
     public void mouseExited(MouseEvent e) {
+        if(!SwingUtilities.isLeftMouseButton(e))
+            return;
         paint.hoveredCell = null;
         paint.repaint();
     }
-
     @Override
     public void mouseMoved(MouseEvent e) {
         updateHoveredCell(e);
     }
-
     @Override
     public void mouseDragged(MouseEvent e) {
         updateHoveredCell(e);
@@ -465,12 +447,12 @@ class listener extends MouseAdapter {
      * Updates the cell the user is hovering on so the hover display can be displayed
      * */
     private void updateHoveredCell(MouseEvent e) {
+        if (paint.cellWidth <= 0 || paint.cellHeight <= 0) return;
         int mouseX = Math.min(e.getX(), paint.cellWidth * paint.gridWidth - 1);
         int mouseY = Math.min(e.getY(), paint.cellHeight * paint.gridHeight - 1);
         int x = mouseX / paint.cellWidth;
         int y = mouseY / paint.cellHeight;
         Point hovered = new Point(x, y);
-
         if (!hovered.equals(paint.hoveredCell)) {
             paint.hoveredCell = hovered;
             paint.repaint();
@@ -481,20 +463,17 @@ class listener extends MouseAdapter {
      * Adds a cell to the painted cells based on the brush size and color
      * */
     void paintCell(MouseEvent e) {
+        if(!paint.isPaintEnabled())
+            return;
         int mouseX = Math.min(e.getX(), paint.cellWidth * paint.gridWidth - 1);
         int mouseY = Math.min(e.getY(), paint.cellHeight * paint.gridHeight - 1);
         int centerX = mouseX / paint.cellWidth;
         int centerY = mouseY / paint.cellHeight;
-
-
         int gridWidth = paint.gridWidth;
         int gridHeight = paint.gridHeight;
-
         Point centerPoint = new Point(centerX, centerY);
         if (centerPoint.equals(lastPaintedCell)) return;
         lastPaintedCell = centerPoint;
-
-        //Calculate the brush size differently if the brush is even or odd sized
         if (paint.getBrushSize() % 2 == 1) {
             int halfBrush = paint.getBrushSize() / 2;
             for (int dy = -halfBrush; dy <= halfBrush; dy++) {
@@ -519,5 +498,4 @@ class listener extends MouseAdapter {
         }
         paint.repaint();
     }
-
 }
